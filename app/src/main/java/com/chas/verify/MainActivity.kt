@@ -129,33 +129,34 @@ class MainActivity : AppCompatActivity() {
         }
         card.addView(cardTitle, rowLp(bottomMargin = dp(14)))
 
+        // ── Renamed to stepNum/stepLabel to avoid shadowing TextView.text property ──
         val steps = listOf(
             "1" to "Paste your KYC link and tap Start",
             "2" to "When the selfie step appears, choose Gallery or Camera",
             "3" to "Gallery upload replaces the camera — no live selfie needed",
             "4" to "Video step is untouched — works exactly as normal"
         )
-        steps.forEachIndexed { i, (num, text) ->
-            val row = LinearLayout(this).apply {
+        steps.forEachIndexed { i, (stepNum, stepLabel) ->
+            val stepRow = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
             }
-            val numView = TextView(this).apply {
-                this.text = num
-                textSize = 13f
-                setTextColor(0xFF4F8EF7.toInt())
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 0, dp(12), 0)
-            }
-            val textView = TextView(this).apply {
-                this.text = text
-                textSize = 13f
-                setTextColor(0xFFADB5BD.toInt())
-                lineSpacingMultiplier = 1.4f
-            }
-            row.addView(numView, LinearLayout.LayoutParams(-2, -2))
-            row.addView(textView, LinearLayout.LayoutParams(0, -2, 1f))
-            card.addView(row, rowLp(bottomMargin = if (i < 3) dp(12) else 0))
+            val numView = TextView(this)
+            numView.text = stepNum
+            numView.textSize = 13f
+            numView.setTextColor(0xFF4F8EF7.toInt())
+            numView.typeface = Typeface.DEFAULT_BOLD
+            numView.setPadding(0, 0, dp(12), 0)
+
+            val labelView = TextView(this)
+            labelView.text = stepLabel
+            labelView.textSize = 13f
+            labelView.setTextColor(0xFFADB5BD.toInt())
+            labelView.lineSpacingMultiplier = 1.4f
+
+            stepRow.addView(numView, LinearLayout.LayoutParams(-2, -2))
+            stepRow.addView(labelView, LinearLayout.LayoutParams(0, -2, 1f))
+            card.addView(stepRow, rowLp(bottomMargin = if (i < 3) dp(12) else 0))
         }
 
         setContentView(scroll)
