@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    chAs icon foreground
+    ─────────────────────────────────────
+    Design: Bold white "C" arc (fingerprint-style)
+            with a blue filled checkmark badge
+    Canvas: 108×108dp, safe zone 18–90
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- ── Outer C arc (largest, faintest) ──────────────────── -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.15"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"
+        android:pathData="M70,30 A30,30 0 1,0 70,78"/>
+
+    <!-- ── Mid C arc ─────────────────────────────────────────── -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.30"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"
+        android:pathData="M68,36 A24,24 0 1,0 68,72"/>
+
+    <!-- ── Inner C arc ───────────────────────────────────────── -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.55"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"
+        android:pathData="M65,42 A18,18 0 1,0 65,66"/>
+
+    <!-- ── Core C arc (solid, main element) ─────────────────── -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:pathData="M63,47 A13,13 0 1,0 63,61"/>
+
+    <!-- ── Badge: filled blue circle ────────────────────────── -->
+    <path
+        android:fillColor="#4F8EF7"
+        android:pathData="M72,62 m-12,0 a12,12 0 1,0 24,0 a12,12 0 1,0 -24,0"/>
+
+    <!-- ── Badge: white checkmark ───────────────────────────── -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M66,62 L70.5,67 L78,55"/>
+
+</vector>

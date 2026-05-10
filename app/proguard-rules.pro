@@ -1,0 +1,5 @@
+-keepclassmembers class * extends android.webkit.WebViewClient { public *; }
+-keepclassmembers class * extends android.webkit.WebChromeClient { public *; }
+-keep class androidx.core.content.FileProvider { *; }
+-keep class com.chas.verify.** { *; }
+-dontwarn okhttp3.**
