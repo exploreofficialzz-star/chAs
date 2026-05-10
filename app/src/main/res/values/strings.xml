@@ -7,7 +7,7 @@
     <string name="upload_from_gallery">Upload from Gallery</string>
     <string name="take_selfie">Take a Selfie</string>
     <string name="selfie_dialog_title">Upload Your Selfie</string>
-    <string name="selfie_dialog_message">Choose how you'd like to provide your photo</string>
+    <string name="selfie_dialog_message">Choose how you\'d like to provide your photo</string>
     <string name="gallery_subtitle">Select an existing photo from your phone</string>
     <string name="camera_subtitle">Use your front camera now</string>
     <string name="cancel">Cancel</string>
