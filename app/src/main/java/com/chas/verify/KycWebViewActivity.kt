@@ -10,6 +10,8 @@ import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import android.view.Gravity
 import android.view.View
@@ -42,6 +44,9 @@ class KycWebViewActivity : AppCompatActivity() {
 
     private var pendingCallback: ValueCallback<Array<Uri>>? = null
     private var tempCameraUri: Uri? = null
+
+    // Main thread handler — essential for showing dialogs from WebChromeClient
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     private enum class AcceptType { IMAGE, VIDEO, OTHER }
 
@@ -185,13 +190,16 @@ class KycWebViewActivity : AppCompatActivity() {
                 progressBar.visibility = if (newProgress < 100) View.VISIBLE else View.GONE
             }
 
-            // ── Core interception ─────────────────────────────────────────
+            // ─────────────────────────────────────────────────────────────
+            // Core interception — called on background thread by WebView,
+            // so we MUST post everything to the main thread via mainHandler
+            // ─────────────────────────────────────────────────────────────
             override fun onShowFileChooser(
                 view: WebView,
                 filePathCallback: ValueCallback<Array<Uri>>,
                 fileChooserParams: FileChooserParams
             ): Boolean {
-                // Always cancel any previous dangling callback first
+                // Cancel any dangling previous callback
                 pendingCallback?.onReceiveValue(null)
                 pendingCallback = filePathCallback
 
@@ -204,120 +212,115 @@ class KycWebViewActivity : AppCompatActivity() {
                     else -> AcceptType.OTHER
                 }
 
-                try {
-                    when (acceptType) {
-                        AcceptType.IMAGE -> {
-                            showStatus("Photo step — choose your source")
-                            showSelfieDialog()
+                // POST to main thread — this is the critical fix
+                mainHandler.post {
+                    try {
+                        when (acceptType) {
+                            AcceptType.IMAGE -> {
+                                showStatus("Photo step — choose your source")
+                                showPhotoDialog()
+                            }
+                            AcceptType.VIDEO -> {
+                                showStatus("Video step — launching camera")
+                                launchVideoCapture()
+                            }
+                            AcceptType.OTHER -> {
+                                launchSystemPicker()
+                            }
                         }
-                        AcceptType.VIDEO -> {
-                            showStatus("Video step — launching camera")
-                            launchVideoCapture()
-                        }
-                        AcceptType.OTHER -> {
-                            showStatus("File selection")
-                            launchSystemPicker()
-                        }
+                    } catch (e: Exception) {
+                        Toast.makeText(
+                            this@KycWebViewActivity,
+                            "Error: ${e.message}",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        pendingCallback?.onReceiveValue(null)
+                        pendingCallback = null
+                        hideStatus()
                     }
-                } catch (e: Exception) {
-                    // If anything goes wrong launching intents, resolve the
-                    // callback with null so the WebView doesn't hang blank
-                    Toast.makeText(
-                        this@KycWebViewActivity,
-                        "Could not open picker: ${e.message}",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    pendingCallback?.onReceiveValue(null)
-                    pendingCallback = null
-                    hideStatus()
                 }
 
                 return true
             }
 
             override fun onPermissionRequest(request: PermissionRequest) {
-                runOnUiThread { request.grant(request.resources) }
+                mainHandler.post { request.grant(request.resources) }
             }
         }
 
         WebView.setWebContentsDebuggingEnabled(true)
     }
 
-    // ── Selfie/Document dialog ────────────────────────────────────────────────
+    // ── Photo source dialog ───────────────────────────────────────────────────
 
-    private fun showSelfieDialog() {
+    private fun showPhotoDialog() {
         val dialog = AlertDialog.Builder(this).create()
 
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(20), dp(20), dp(20))
+            setPadding(dp(20), dp(24), dp(20), dp(20))
         }
 
-        val title = TextView(this).apply {
-            text = "Choose Photo Source"
-            textSize = 18f
-            setTextColor(0xFFE8EAF0.toInt())
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-        }
+        val title = TextView(this)
+        title.text = "Choose Photo Source"
+        title.textSize = 18f
+        title.setTextColor(0xFFE8EAF0.toInt())
+        title.typeface = Typeface.DEFAULT_BOLD
+        title.gravity = Gravity.CENTER
         container.addView(title, rowLp(bottomMargin = dp(6)))
 
-        val subtitle = TextView(this).apply {
-            text = "Upload existing photo or take a new one"
-            textSize = 13f
-            setTextColor(0xFF7C8190.toInt())
-            gravity = Gravity.CENTER
-        }
+        val subtitle = TextView(this)
+        subtitle.text = "Upload existing or take a new photo"
+        subtitle.textSize = 13f
+        subtitle.setTextColor(0xFF7C8190.toInt())
+        subtitle.gravity = Gravity.CENTER
         container.addView(subtitle, rowLp(bottomMargin = dp(24)))
 
-        // Gallery — primary option
-        val galleryBtn = buildOptionCard(
+        // Gallery — primary
+        val galleryCard = buildCard(
             label = "Upload from Gallery",
             sublabel = "Pick an existing photo from your phone",
             fillColor = 0xFF0D1E3A.toInt(),
             strokeColor = 0xFF2A4A8A.toInt(),
             labelColor = 0xFF4F8EF7.toInt()
         )
-        galleryBtn.setOnClickListener {
+        galleryCard.setOnClickListener {
             dialog.dismiss()
             openGallery()
         }
-        container.addView(galleryBtn, rowLp(bottomMargin = dp(12)))
+        container.addView(galleryCard, rowLp(bottomMargin = dp(12)))
 
-        // Camera — secondary option
-        val cameraBtn = buildOptionCard(
+        // Camera — secondary
+        val cameraCard = buildCard(
             label = "Take a Photo",
             sublabel = "Use your camera right now",
             fillColor = 0xFF1A1D24.toInt(),
             strokeColor = 0xFF252830.toInt(),
             labelColor = 0xFFADB5BD.toInt()
         )
-        cameraBtn.setOnClickListener {
+        cameraCard.setOnClickListener {
             dialog.dismiss()
             openCamera()
         }
-        container.addView(cameraBtn, rowLp(bottomMargin = dp(20)))
+        container.addView(cameraCard, rowLp(bottomMargin = dp(20)))
 
-        val cancelBtn = TextView(this).apply {
-            text = "Cancel"
-            textSize = 14f
-            setTextColor(0xFF7C8190.toInt())
-            gravity = Gravity.CENTER
-            isClickable = true
-            isFocusable = true
-            setOnClickListener {
-                dialog.dismiss()
-                // IMPORTANT: must resolve callback with null on cancel
-                // or the WebView hangs on a blank screen
-                pendingCallback?.onReceiveValue(null)
-                pendingCallback = null
-                hideStatus()
-            }
+        val cancelBtn = TextView(this)
+        cancelBtn.text = "Cancel"
+        cancelBtn.textSize = 14f
+        cancelBtn.setTextColor(0xFF7C8190.toInt())
+        cancelBtn.gravity = Gravity.CENTER
+        cancelBtn.isClickable = true
+        cancelBtn.isFocusable = true
+        cancelBtn.setOnClickListener {
+            dialog.dismiss()
+            pendingCallback?.onReceiveValue(null)
+            pendingCallback = null
+            hideStatus()
         }
         container.addView(cancelBtn, rowLp())
 
         dialog.setView(container)
-        dialog.setCancelable(false) // force explicit cancel tap
+        dialog.setCancelable(false)
         dialog.setOnCancelListener {
             pendingCallback?.onReceiveValue(null)
             pendingCallback = null
@@ -336,11 +339,11 @@ class KycWebViewActivity : AppCompatActivity() {
         }
     }
 
-    private fun buildOptionCard(
+    private fun buildCard(
         label: String, sublabel: String,
         fillColor: Int, strokeColor: Int, labelColor: Int
     ): LinearLayout {
-        val row = LinearLayout(this).apply {
+        val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(16), dp(16), dp(16))
             isClickable = true
@@ -351,36 +354,34 @@ class KycWebViewActivity : AppCompatActivity() {
                 setStroke(dp(1), strokeColor)
             }
         }
-        val titleView = TextView(this)
-        titleView.text = label
-        titleView.textSize = 15f
-        titleView.setTextColor(labelColor)
-        titleView.typeface = Typeface.DEFAULT_BOLD
+        val t = TextView(this)
+        t.text = label
+        t.textSize = 15f
+        t.setTextColor(labelColor)
+        t.typeface = Typeface.DEFAULT_BOLD
 
-        val subView = TextView(this)
-        subView.text = sublabel
-        subView.textSize = 12f
-        subView.setTextColor(0xFF7C8190.toInt())
-        subView.setPadding(0, dp(3), 0, 0)
+        val s = TextView(this)
+        s.text = sublabel
+        s.textSize = 12f
+        s.setTextColor(0xFF7C8190.toInt())
+        s.setPadding(0, dp(3), 0, 0)
 
-        row.addView(titleView, LinearLayout.LayoutParams(-2, -2))
-        row.addView(subView, LinearLayout.LayoutParams(-2, -2))
-        return row
+        card.addView(t, LinearLayout.LayoutParams(-2, -2))
+        card.addView(s, LinearLayout.LayoutParams(-2, -2))
+        return card
     }
 
     // ── Gallery ───────────────────────────────────────────────────────────────
 
     private fun openGallery() {
         try {
-            // ACTION_GET_CONTENT is more reliable than ACTION_PICK across all
-            // Android versions and doesn't require READ_EXTERNAL_STORAGE on API 33+
             val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
                 type = "image/*"
                 addCategory(Intent.CATEGORY_OPENABLE)
             }
             startActivityForResult(Intent.createChooser(intent, "Select Photo"), REQ_GALLERY)
         } catch (e: Exception) {
-            Toast.makeText(this, "Cannot open gallery: ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Cannot open gallery", Toast.LENGTH_SHORT).show()
             pendingCallback?.onReceiveValue(null)
             pendingCallback = null
             hideStatus()
@@ -412,7 +413,7 @@ class KycWebViewActivity : AppCompatActivity() {
             }
             startActivityForResult(intent, REQ_CAM_SELFIE)
         } catch (e: Exception) {
-            Toast.makeText(this, "Cannot open camera: ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Cannot open camera", Toast.LENGTH_SHORT).show()
             pendingCallback?.onReceiveValue(null)
             pendingCallback = null
             hideStatus()
@@ -429,7 +430,6 @@ class KycWebViewActivity : AppCompatActivity() {
             }
             startActivityForResult(intent, REQ_VIDEO)
         } catch (e: Exception) {
-            Toast.makeText(this, "Cannot open video camera: ${e.message}", Toast.LENGTH_SHORT).show()
             pendingCallback?.onReceiveValue(null)
             pendingCallback = null
             hideStatus()
@@ -448,7 +448,6 @@ class KycWebViewActivity : AppCompatActivity() {
         } catch (e: Exception) {
             pendingCallback?.onReceiveValue(null)
             pendingCallback = null
-            hideStatus()
         }
     }
 
@@ -464,11 +463,11 @@ class KycWebViewActivity : AppCompatActivity() {
         val uris: Array<Uri>? = try {
             when {
                 resultCode != Activity.RESULT_OK -> null
-                requestCode == REQ_GALLERY      -> data?.data?.let { arrayOf(it) }
-                requestCode == REQ_CAM_SELFIE   -> tempCameraUri?.let { arrayOf(it) }
+                requestCode == REQ_GALLERY     -> data?.data?.let { arrayOf(it) }
+                requestCode == REQ_CAM_SELFIE  -> tempCameraUri?.let { arrayOf(it) }
                     .also { tempCameraUri = null }
-                requestCode == REQ_VIDEO        -> data?.data?.let { arrayOf(it) }
-                requestCode == REQ_FILE_OTHER   -> data?.data?.let { arrayOf(it) }
+                requestCode == REQ_VIDEO       -> data?.data?.let { arrayOf(it) }
+                requestCode == REQ_FILE_OTHER  -> data?.data?.let { arrayOf(it) }
                 else -> null
             }
         } catch (e: Exception) {
@@ -503,12 +502,12 @@ class KycWebViewActivity : AppCompatActivity() {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private fun showStatus(msg: String) = runOnUiThread {
+    private fun showStatus(msg: String) = mainHandler.post {
         statusText.text = msg
         statusBar.visibility = View.VISIBLE
     }
 
-    private fun hideStatus() = runOnUiThread {
+    private fun hideStatus() = mainHandler.post {
         statusBar.visibility = View.GONE
     }
 
